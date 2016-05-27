@@ -17,6 +17,72 @@ using namespace cv;
 using namespace std;
 
 
+int analysisAngle(char* pMem, char* filename){
+	RNG rng(12345);
+
+    cv::Mat img = cv::imread("test0.jpg");
+    if (img.empty())
+    {
+        std::cout << "!!! Failed to open image" << std::endl;
+        return -1;
+    }
+
+    /* Convert to grayscale */
+
+    cv::Mat gray;
+    cv::cvtColor(img, gray, cv::COLOR_BGR2GRAY);
+
+    /* Convert to binary */
+
+    cv::Mat thres;
+    cv::threshold(gray, thres, 40, 255, cv::THRESH_BINARY);
+
+    /* Find contours */
+
+    std::vector<std::vector<cv::Point> > contours;
+    cv::findContours(thres, contours, cv::RETR_LIST, cv::CHAIN_APPROX_SIMPLE);
+
+
+    /// Find the rotated rectangles and ellipses for each contour
+    vector<RotatedRect> minRect( contours.size() );
+    vector<RotatedRect> minEllipse( contours.size() );
+
+    for( int i = 0; i < contours.size(); i++ )
+       { minRect[i] = minAreaRect( Mat(contours[i]) );
+         if( contours[i].size() > 200 )
+           { minEllipse[i] = fitEllipse( Mat(contours[i]) ); }
+       }
+
+    /// Draw contours + rotated rects + ellipses
+    Mat drawing = Mat::zeros( thres.size(), CV_8UC3);
+    for( int i = 0; i< contours.size(); i++ )
+       {
+         Scalar color = Scalar( rng.uniform(0, 255), rng.uniform(0,255), rng.uniform(0,255) );
+
+         //printf("size %f\n",minAreaRect( Mat(contours[i]) ));
+         // contour
+         //drawContours( gray, contours, i, color, 1, 8, vector<Vec4i>(), 0, Point() );
+         // ellipse
+         ellipse( img, minEllipse[i], color, 2, 8 );
+         if( contours[i].size() > 200 ) std::cout << minEllipse[i].center << std::endl;
+
+         // rotated rectangle
+         //Point2f rect_points[4]; minRect[i].points( rect_points );
+         //for( int j = 0; j < 4; j++ )
+         //   line( drawing, rect_points[j], rect_points[(j+1)%4], color, 1, 8 );
+       }
+
+
+    /// Show in a window
+    namedWindow( "Contours", CV_WINDOW_AUTOSIZE );
+    imshow( "Contours", img );
+    cv::waitKey(0);
+
+    cv::imwrite("output.jpg", img);
+    return 0;
+
+}
+
 int analysisFocus(char* pMem, char* filename){
 	RNG rng(12345);
 
