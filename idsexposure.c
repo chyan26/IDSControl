@@ -20,36 +20,24 @@ using namespace std;
 int analysisFocus(char* pMem, char* filename){
 	RNG rng(12345);
 
-    //cv::Mat img = cv::imread(filename);
-    //if (img.empty())
-    //{
-     //   std::cout << "!!! Failed to open image" << std::endl;
-     //   return -1;
-   // }
 
+	/* Establish an array for storing the image data */
     cv::Mat imageData(1024,1280, CV_8UC1);
     for( int i = 0; i < 1280; i++ ){
     	for( int j = 0; j < 1024; j++ ){
     		imageData.at<uchar>(j,i)=pMem[j*1280+i];
     	}
     }
-    /// Show in a window
-    //namedWindow( "image data", CV_WINDOW_AUTOSIZE );
-    //imshow( "image data", imageData );
-    //cv::waitKey(0);
 
-    /* Convert to grayscale */
-
+    /* Convert to the grey scale image to color image for displaying */
     cv::Mat img;
     cv::cvtColor(imageData, img, CV_GRAY2BGR);
 
-    /* Convert to binary */
-
+    /* Convert to binary threshold image*/
     cv::Mat thres;
     cv::threshold(imageData, thres, 100, 255, cv::THRESH_BINARY);
 
-    /* Find contours */
-
+    /* Find contours based on theshold image*/
     std::vector<std::vector<cv::Point> > contours;
     cv::findContours(thres, contours, cv::RETR_LIST, cv::CHAIN_APPROX_SIMPLE);
 
@@ -58,6 +46,7 @@ int analysisFocus(char* pMem, char* filename){
     vector<RotatedRect> minRect( contours.size() );
     vector<RotatedRect> minEllipse( contours.size() );
 
+    /* Going through every contour for ellipse detecting */
     for( int i = 0; i < contours.size(); i++ )
        { minRect[i] = minAreaRect( Mat(contours[i]) );
          if( contours[i].size() > 5 )
@@ -69,14 +58,7 @@ int analysisFocus(char* pMem, char* filename){
     for( int i = 0; i< contours.size(); i++ )
        {
          Scalar color = Scalar( rng.uniform(0, 255), rng.uniform(0,255), rng.uniform(0,255) );
-         // contour
-         //drawContours( gray, contours, i, color, 1, 8, vector<Vec4i>(), 0, Point() );
-         // ellipse
          ellipse( img, minEllipse[i], color, 2, 8 );
-         // rotated rectangle
-         //Point2f rect_points[4]; minRect[i].points( rect_points );
-         //for( int j = 0; j < 4; j++ )
-         //   line( drawing, rect_points[j], rect_points[(j+1)%4], color, 1, 8 );
        }
 
     Point2f start_points;
@@ -221,9 +203,6 @@ int main(int argc, char *argv[]) {
 
 	//Pixel-Clock Setting, the range of this camera is 7-35 MHz
 	unsigned int nPixelClockDefault=35;
-	// Get default pixel clock
-	//nRet = is_PixelClock(hCam, IS_PIXELCLOCK_CMD_GET_DEFAULT,
-	//                        (void*)&nPixelClockDefault, sizeof(nPixelClockDefault));
 
 	nRet = is_PixelClock(hCam, IS_PIXELCLOCK_CMD_SET,
 	                        (void*)&nPixelClockDefault,
@@ -322,6 +301,7 @@ int main(int argc, char *argv[]) {
 			if (verbose) printf("Wait %i seconds before next exposure.\n",interval);
 		}
 
+		/* Passing the pointer of the image memory to analysis function */
 		analysisFocus(pMem,string);
 
 		loops--;
