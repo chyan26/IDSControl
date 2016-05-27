@@ -106,6 +106,7 @@ printUsageSyntax(char *prgname) {
 	   "Usage: %s <INPUT> <OUTPUT> [options...]\n"
 		"	-h, --help      display help message\n"
 		"	-f, --file      name of image file to be saved.\n"
+		"	-c, --focus     analysis focus.\n"
 		"	-d, --device    selecting device ID.\n"
 		"	-e, --exptime   exposure time in the unit of ms.\n"
 		"	-i, --interval  interval of seconds between exposures.\n"
@@ -121,6 +122,7 @@ int main(int argc, char *argv[]) {
 	int  verbose=0;
 	int  device=1;
 	int  interval=0;
+	int  focus=0;
 	int  nRet;
 	double  etime;
 
@@ -133,6 +135,7 @@ int main(int argc, char *argv[]) {
 	struct option longopts[] = {
          {"loops" ,0, NULL, 'l'},
 	     {"file" ,1, NULL, 'f'},
+	     {"focus" ,0, NULL, 'c'},
 	     {"device" ,1, NULL, 'd'},
 	     {"exptime" ,1, NULL, 'e'},
 	     {"invterval" ,1, NULL, 'i'},
@@ -140,7 +143,7 @@ int main(int argc, char *argv[]) {
 		 {"help", 0, NULL, 'h'},
 		 {0,0,0,0}};
 
-	while((opt = getopt_long(argc, argv, "d:i:f:e:l:vh",
+	while((opt = getopt_long(argc, argv, "cd:i:f:e:l:vh",
 	   longopts, NULL))  != -1){
 	      switch(opt) {
 	         case 'l':
@@ -154,6 +157,9 @@ int main(int argc, char *argv[]) {
 	               break;
 	         case 'f':
 	               file = optarg;
+	               break;
+	         case 'c':
+	               focus = 1;
 	               break;
 	         case 'e':
 	               etime = strtold(optarg,NULL);
