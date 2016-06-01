@@ -2,5 +2,11 @@
 IDS Camera Control and Image Analysis Package for Linux 
 
 == Installation ====
-make
+
+Simply type the command in the terminal.
+
+% make 
+
+
+
 
