@@ -382,23 +382,6 @@ int main(int argc, char *argv[]) {
 		int nPitch;
 		is_GetImageMemPitch (hCam, &nPitch);
 
-		//printf("value=%i\n",nPitch);
-
-//		int i,j;
-//		for (i=0;i < 1280; i++) {
-//			for (j=0;j<1024;j++){
-//				printf("%i  ",pMem[i+j*nPitch]);
-//			}
-//			sleep(1);
-//			printf("\n");
-//
-//		}
-		//printf("value=%i\n",pMem[277849]);
-		//printf("\n");
-
-		//
-		//nRet = is_ImageFile(hCam, IS_IMAGE_FILE_CMD_SAVE, (void*) &ImageFileParams, sizeof(ImageFileParams));
-		//if (verbose) printf("Status is_ImageFile %d\n",nRet);
 
 		if (interval > 0){
 			sleep(interval);
