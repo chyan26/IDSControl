@@ -10,16 +10,16 @@
 #include <string>
 
 
-#include "opencv2\opencv.hpp"
-#include "opencv2\highgui\highgui.hpp"
-#include "opencv2\imgproc\imgproc.hpp"
+#include "opencv2/opencv.hpp"
+#include "opencv2/highgui/highgui.hpp"
+#include "opencv2/imgproc/imgproc.hpp"
 
 
 using namespace cv;
 using namespace std;
 
 
-Mat analysisCenter(Mat imageData){
+Mat analysisCenter(Mat imageData, int threshold){
 	RNG rng(12345);
 
 
@@ -32,7 +32,7 @@ Mat analysisCenter(Mat imageData){
     vector<vector<Point> > contours;
     vector<Vec4i> hierarchy;
 
-    Canny( imageData, canny_output, 200, 200*1.5, 3 );
+    Canny( imageData, canny_output, threshold, threshold*1.5, 3 );
     findContours( canny_output, contours, hierarchy, CV_RETR_TREE, CV_CHAIN_APPROX_SIMPLE, Point(0, 0) );
     /// Get the moments
      vector<Moments> mu(contours.size() );
@@ -65,7 +65,7 @@ Mat analysisCenter(Mat imageData){
     return img;
 
 }
-Mat analysisAngle(Mat imageData){
+Mat analysisAngle(Mat imageData, int threshold){
 	RNG rng(12345);
 
 	/* Establish an array for storing the image data */
@@ -83,7 +83,7 @@ Mat analysisAngle(Mat imageData){
     /* Convert to binary */
 
     cv::Mat thres;
-    cv::threshold(imageData, thres, 0.7*255, 255, cv::THRESH_BINARY);
+    cv::threshold(imageData, thres, threshold, 255, cv::THRESH_BINARY);
 
     /* Find contours */
 
@@ -130,9 +130,10 @@ Mat analysisAngle(Mat imageData){
 }
 
 
-Mat analysisFocus(Mat imageData){
+Mat analysisFocus(Mat imageData, int threshold){
 	RNG rng(12345);
-
+    int i;
+        
     /* Convert to the grey scale image to color image for displaying */
     cv::Mat img;
     cv::cvtColor(imageData, img, CV_GRAY2BGR);
@@ -140,7 +141,7 @@ Mat analysisFocus(Mat imageData){
 
     /* Convert to binary threshold image*/
     cv::Mat thres;
-    cv::threshold(imageData, thres, 100, 255, cv::THRESH_BINARY);
+    cv::threshold(imageData, thres, threshold, 255, cv::THRESH_BINARY);
 
     /* Find contours based on theshold image*/
     std::vector<std::vector<cv::Point> > contours;
@@ -150,48 +151,63 @@ Mat analysisFocus(Mat imageData){
     /// Find the rotated rectangles and ellipses for each contour
     vector<RotatedRect> minRect( contours.size() );
     vector<RotatedRect> minEllipse( contours.size() );
-
+    
+    
     /* Going through every contour for ellipse detecting */
-    for( int i = 0; i < contours.size(); i++ )
+    for( i = 0; i < contours.size(); i++ )
        { minRect[i] = minAreaRect( Mat(contours[i]) );
-         if( contours[i].size() > 5 )
+         if( contours[i].size() > 10 )
            { minEllipse[i] = fitEllipse( Mat(contours[i]) ); }
        }
-
+    
     /// Draw contours + rotated rects + ellipses
     Mat drawing = Mat::zeros( thres.size(), CV_8UC3);
-    for( int i = 0; i< contours.size(); i++ )
+    for( i = 0; i< contours.size(); i++ )
        {
          Scalar color = Scalar( rng.uniform(0, 255), rng.uniform(0,255), rng.uniform(0,255) );
          ellipse( img, minEllipse[i], color, 2, 8 );
        }
-
-    Point2f start_points;
-    start_points=minEllipse[0].center;
-
+    
+    //printf("total ellipses = %i\n",i);
+    
+    vector<Point2f> sec(4);
+    
+    for (i =0; i < contours.size(); i++ )
+        {
+            if (minEllipse[i].center.x != 0 && minEllipse[i].center.y != 0){
+                //printf("x= %f y= %f %i %i \n",minEllipse[i].center.x,minEllipse[i].center.y,img.cols,img.rows);
+                if (minEllipse[i].center.x < img.cols/2 && minEllipse[i].center.y < img.rows/2) sec[0]=minEllipse[i].center;
+                if (minEllipse[i].center.x > img.cols/2 && minEllipse[i].center.y < img.rows/2) sec[1]=minEllipse[i].center;
+                if (minEllipse[i].center.x > img.cols/2 && minEllipse[i].center.y > img.rows/2) sec[2]=minEllipse[i].center;
+                if (minEllipse[i].center.x < img.cols/2 && minEllipse[i].center.y > img.rows/2) sec[3]=minEllipse[i].center;
+                
+            }    //sec1=minEllipse[i].center
+            
+        }
+    
     Scalar color = Scalar( rng.uniform(2, 255), rng.uniform(2,255), rng.uniform(2,255) );
-    line(img,minEllipse[0].center, minEllipse[1].center, color, 1, 8 );
-    line(img,minEllipse[1].center, minEllipse[2].center, color, 1, 8 );
-    line(img,minEllipse[2].center, minEllipse[3].center, color, 1, 8 );
-    line(img,minEllipse[3].center, minEllipse[0].center, color, 1, 8 );
+    line(img,sec[0], sec[1], color, 1, 8 );
+    line(img,sec[1], sec[2], color, 1, 8 );
+    line(img,sec[2], sec[3], color, 1, 8 );
+    line(img,sec[3], sec[0], color, 1, 8 );
 
-    Point diff1 = minEllipse[0].center - minEllipse[1].center;
-    Point diff2 = minEllipse[1].center - minEllipse[2].center;
-    Point diff3 = minEllipse[2].center - minEllipse[3].center;
-    Point diff4 = minEllipse[0].center - minEllipse[3].center;
+    Point diff1 = sec[0] - sec[1];
+    Point diff2 = sec[1] - sec[2];
+    Point diff3 = sec[2] - sec[3];
+    Point diff4 = sec[3] - sec[0];
     
     float res1= cv::sqrt(diff1.x*diff1.x + diff1.y*diff1.y);
     float res2= cv::sqrt(diff2.x*diff2.x + diff2.y*diff2.y);
     float res3= cv::sqrt(diff3.x*diff3.x + diff3.y*diff3.y);
     float res4= cv::sqrt(diff4.x*diff4.x + diff4.y*diff4.y);
 
-	printf("dist %f %f %f %f %f\n",res1,res2,res3,res4,(res1+res2+res3+res4)/4);
+    printf("dist %f %f %f %f %f\n",res1,res2,res3,res4,(res1+res2+res3+res4)/4);
 
 	
     /// Show in a window
-    //namedWindow( "Contours", CV_WINDOW_AUTOSIZE );
-    //imshow( "Contours", img );
-    //cv::waitKey(0);
+    namedWindow( "Contours", CV_WINDOW_AUTOSIZE );
+    imshow( "Contours", img );
+    cv::waitKey(0);
 	
 	//resImg=img;
 	//imwrite(filename, img);
@@ -199,7 +215,7 @@ Mat analysisFocus(Mat imageData){
 	return img;
 }
 
-printUsageSyntax(char *prgname) {
+int printUsageSyntax(char *prgname) {
 	fprintf(stderr,
 	        "IDS exposure control.\n"
 	        "Usage: %s <INPUT> <OUTPUT> [options...]\n"
@@ -210,6 +226,7 @@ printUsageSyntax(char *prgname) {
 	        "	-c, --focus     analysis focus.\n"
 	        "	-o, --center    analysis center.\n"
 	        "	-a, --angle     analysis angle.\n"
+                "	-t, --threshold  setting the threshold.\n"
 	        "	-v, --verbose   turn on verbose.\n"
 	        , prgname);
 
@@ -221,7 +238,7 @@ int main(int argc, char *argv[]) {
 	int  verbose=0;
 	int  focus=0,center=0,angle=0;
 	int  display=0;
-	double  etime;
+        int  thres=0;
 
 	char  *file=NULL,*output=NULL;
 	string  string;
@@ -235,12 +252,13 @@ int main(int argc, char *argv[]) {
 		{"center" ,0, NULL, 'o'},
 		{"angle" ,0, NULL, 'a'},
 		{"display" ,0, NULL, 'd'},
+		{"threshold",1, NULL, 't'},
 		{"verbose",0, NULL, 'v'},
-		{"help", 0, NULL, 'h'},
+                {"help", 0, NULL, 'h'},
 		{0,0,0,0}
 	};
 
-	while((opt = getopt_long(argc, argv, "f:p:coavhd",
+	while((opt = getopt_long(argc, argv, "f:p:coavhdt:",
 	                         longopts, NULL))  != -1) {
 		switch(opt) {
 			case 'f':
@@ -260,10 +278,15 @@ int main(int argc, char *argv[]) {
 				break;
 			case 'd':
 				display = 1;
+                                break;
+			case 't':
+				thres = atoi(optarg);
+				break;
 			case 'v':
 				verbose = 1;
 				break;
-			case 'h':
+
+                        case 'h':
 				printUsageSyntax(argv[0]);
 				exit(EXIT_FAILURE);
 				break;
@@ -289,12 +312,15 @@ int main(int argc, char *argv[]) {
 	Mat resImg;
  	image = imread(file, CV_LOAD_IMAGE_GRAYSCALE);
 	
-	if (focus==1) resImg=analysisFocus(image);
-	if (angle==1) resImg=analysisAngle(image);
-	if (center==1) resImg=analysisCenter(image);
+        if (thres == 0 ) thres = 70;
+	if (focus==1) resImg=analysisFocus(image,thres);
+	if (angle==1) resImg=analysisAngle(image,thres);
+	if (center==1) resImg=analysisCenter(image,thres);
 	
-	string="output-";
-	string.append(file); 
+        //if (output == NULL){
+            string="output-";
+            string.append(file); 
+        //}
    	imwrite(string, resImg);
    
     //namedWindow( "Display window", WINDOW_AUTOSIZE );// Create a window for display.
