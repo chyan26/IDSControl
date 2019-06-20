@@ -75,18 +75,31 @@ Mat analysisAngle(Mat imageData, int threshold){
     //		imageData.at<uchar>(j,i)=pMem[j*1280+i];
     //	}
     //}
+    double maxVal, minVal;
+    float  thresVal;
+    int    thresValint;
+
+    if (threshold > 100) {
+    	fprintf(stderr, "Warning: (%s:%s:%d) threshold should be 0 to 100."
+        	"\n", __FILE__, __func__, __LINE__);
+        exit(EXIT_FAILURE);
+    }
 
     /* Convert to the grey scale image to color image for displaying */
     cv::Mat img;
     cv::cvtColor(imageData, img, COLOR_GRAY2BGR);
-
+    
+    /* Calculate the maximum of the image */
+    cv::minMaxLoc(img, &minVal, &maxVal, 0, 0);
+    
+    thresVal = maxVal*threshold/100.0;
+    thresValint = (int) thresVal;
+    
     /* Convert to binary */
-
     cv::Mat thres;
-    cv::threshold(imageData, thres, threshold, 255, cv::THRESH_BINARY);
+    cv::threshold(imageData, thres, thresValint, 255, cv::THRESH_BINARY);
 
     /* Find contours */
-
     std::vector<std::vector<cv::Point> > contours;
     cv::findContours(thres, contours, cv::RETR_LIST, cv::CHAIN_APPROX_SIMPLE);
 
