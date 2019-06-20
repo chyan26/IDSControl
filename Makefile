@@ -1,25 +1,25 @@
 
-OPENCVINC = `pkg-config --cflags opencv`
-OPENCVLNK = `pkg-config --libs opencv`
+OPENCVINC = `pkg-config --cflags opencv4`
+OPENCVLNK = `pkg-config --libs opencv4`
 
 CCDEBUG = -g -Ofast -Wall -Wno-write-strings
 CCINCS = -I/usr/include -I. -I/usr/local/include $(OPENCVINC)
 CCLIBS = -L/usr/lib/x86_64-linux-gnu -L. -L/usr/local/lib $(OPENCVLNK)
-CCLINK = -ljpeg -lcfitsio -lm -lueye_api
+CCLINK = -ljpeg -lm
 
 
 CC=g++
 
 
-all: idsexposure
+all: idscheck	
 
 clean:
 	rm -f *.o 
 
-idsexposure.o: idsexposure.c
+idscheck.o: idscheck.cpp
 	$(CC) $(CCDEBUG) $(CCINCS) -o $@ -c $< $(CFLAG)
 
-idsexposure: idsexposure.o
+idscheck: idscheck.o
 	$(CC) -o $@ $< $(CFLAG) $(CCLIBS) $(CCLINK)
 
 	

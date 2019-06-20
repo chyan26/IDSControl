@@ -25,7 +25,7 @@ Mat analysisCenter(Mat imageData, int threshold){
 
     /* Convert to the grey scale image to color image for displaying */
     cv::Mat img;
-    cv::cvtColor(imageData, img, CV_GRAY2BGR);
+    cv::cvtColor(imageData, img, COLOR_GRAY2BGR);
 
 
     Mat canny_output;
@@ -33,7 +33,7 @@ Mat analysisCenter(Mat imageData, int threshold){
     vector<Vec4i> hierarchy;
 
     Canny( imageData, canny_output, threshold, threshold*1.5, 3 );
-    findContours( canny_output, contours, hierarchy, CV_RETR_TREE, CV_CHAIN_APPROX_SIMPLE, Point(0, 0) );
+    findContours( canny_output, contours, hierarchy, RETR_TREE, CHAIN_APPROX_SIMPLE, Point(0, 0) );
     /// Get the moments
      vector<Moments> mu(contours.size() );
      for( int i = 0; i < contours.size(); i++ )
@@ -78,7 +78,7 @@ Mat analysisAngle(Mat imageData, int threshold){
 
     /* Convert to the grey scale image to color image for displaying */
     cv::Mat img;
-    cv::cvtColor(imageData, img, CV_GRAY2BGR);
+    cv::cvtColor(imageData, img, COLOR_GRAY2BGR);
 
     /* Convert to binary */
 
@@ -136,7 +136,7 @@ Mat analysisFocus(Mat imageData, int threshold){
         
     /* Convert to the grey scale image to color image for displaying */
     cv::Mat img;
-    cv::cvtColor(imageData, img, CV_GRAY2BGR);
+    cv::cvtColor(imageData, img, COLOR_GRAY2BGR);
     //cvCvtColor(imageData, img, CV_GRAY2BGR);
 
     /* Convert to binary threshold image*/
@@ -205,7 +205,7 @@ Mat analysisFocus(Mat imageData, int threshold){
 
 	
     /// Show in a window
-    namedWindow( "Contours", CV_WINDOW_AUTOSIZE );
+    namedWindow( "Contours", WINDOW_AUTOSIZE );
     imshow( "Contours", img );
     cv::waitKey(0);
 	
@@ -310,7 +310,7 @@ int main(int argc, char *argv[]) {
 	}
 	Mat image;
 	Mat resImg;
- 	image = imread(file, CV_LOAD_IMAGE_GRAYSCALE);
+ 	image = imread(file, IMREAD_GRAYSCALE);
 	
         if (thres == 0 ) thres = 70;
 	if (focus==1) resImg=analysisFocus(image,thres);
@@ -327,10 +327,11 @@ int main(int argc, char *argv[]) {
     //cvShowImage( "Display window", image );                   // Show our image inside it.
     
 	if (display == 1){
-		imshow( "Display window", resImg );                   // Show our image inside it.
- 		cvWaitKey(0);
+		imshow( "Display window", resImg );                   
+		// Show our image inside it.
+		cv::waitKey(0);
 	}
-	 		cvWaitKey(0);
+	cv::waitKey(0);
 
 	
 	
