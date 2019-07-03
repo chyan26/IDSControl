@@ -19,6 +19,13 @@
 using namespace cv;
 using namespace std;
 
+#define CENTER_SIZE_X 128
+#define CENTER_SIZE_Y 128
+
+struct vars_struct {
+   double *flux;     //DATA
+   double *ferr;     //ESTIMATE OF ERROR
+};
 
 static int
 gaussfunc2d(int m, int n, double *p, double *dy, double **dvec, void *vars)
@@ -198,7 +205,7 @@ int *calculateCentroidMPFIT(unsigned short *image, int columns, int rows,
     */
    float xest = 0;
    float yest = 0;
-   calculateCentroid(image, GUIDE_SIZE_X, GUIDE_SIZE_Y,&xest, &yest);
+   calculateCentroid(image, columns, rows,&xest, &yest);
    //fprintf(stderr,"x=%f y=%f ",xest,yest);
 
    /*
@@ -209,15 +216,15 @@ int *calculateCentroidMPFIT(unsigned short *image, int columns, int rows,
    int subx, suby,np;
    double *subimage;
 
-   fpix[0]=xest-GUIDE_SIZE_X/4;
-   fpix[1]=yest-GUIDE_SIZE_Y/4;
-   lpix[0]=xest+GUIDE_SIZE_X/4-1;
-   lpix[1]=yest+GUIDE_SIZE_Y/4-1;
+   fpix[0]=xest-CENTER_SIZE_X/4;
+   fpix[1]=yest-CENTER_SIZE_Y/4;
+   lpix[0]=xest+CENTER_SIZE_X/4-1;
+   lpix[1]=yest+CENTER_SIZE_Y/4-1;
 
-   if (xest-GUIDE_SIZE_X/4 < 0) fpix[0]=0;
-   if (yest-GUIDE_SIZE_X/4 < 0) fpix[1]=0;
-   if (xest-GUIDE_SIZE_X/4 > 32) lpix[0]=32;
-   if (yest-GUIDE_SIZE_X/4 > 32) lpix[1]=32;
+   if (xest-CENTER_SIZE_X/4 < 0) fpix[0]=0;
+   if (yest-CENTER_SIZE_Y/4 < 0) fpix[1]=0;
+   if (xest-CENTER_SIZE_X/4 > 128) lpix[0]=128;
+   if (yest-CENTER_SIZE_Y/4 > 128) lpix[1]=128;
 
 
    //GET THE DIMENSIONS OF THE SUBREGION
@@ -225,8 +232,8 @@ int *calculateCentroidMPFIT(unsigned short *image, int columns, int rows,
    suby=lpix[1]-fpix[1]+1;
 
    // Copy the central region
-   subimage = malloc(subx*suby*sizeof(double));
-   ferr = malloc(subx*suby*sizeof(double));
+   subimage = (double *)malloc(subx*suby*sizeof(double));
+   ferr = (double *)malloc(subx*suby*sizeof(double));
    //fprintf(stderr,"subx=%i %i \n",subx,suby);
 
    for (i=fpix[0];i<fpix[0]+subx;i++){
