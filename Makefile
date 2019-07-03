@@ -5,14 +5,24 @@ OPENCVLNK = `pkg-config --libs opencv4`
 CCDEBUG = -g -Ofast -Wall -Wno-write-strings
 CCINCS = -I/usr/include -I. -I/usr/local/include $(OPENCVINC)
 CCLIBS = -L/usr/lib/x86_64-linux-gnu -L. -L/usr/local/lib $(OPENCVLNK)
-CCLINK = -ljpeg -lm
+CCLINK = -ljpeg -lm -lmpfit
 
 
 CC=g++
 
+OFILES=mpfit.o
+LIBFILE=libmpfit.a
 
-all: idscheck	
+all: $(LIBFILE) idscheck 	
 
+$(LIBFILE): $(OFILES)
+    $(AR) r $@ $(OFILES)
+
+mpfit.o: mpfit.c mpfit.h
+        $(CC) -c -o $@ $< $(CFLAGS)
+
+$(LIBFILE): $(OFILES)
+        $(AR) r $@ $(OFILES)	
 clean:
 	rm -f *.o 
 
