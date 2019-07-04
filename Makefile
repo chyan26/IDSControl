@@ -5,7 +5,7 @@ OPENCVLNK = `pkg-config --libs opencv4`
 CCDEBUG = -g -Ofast -Wall -Wno-write-strings
 CCINCS = -I/usr/include -I. -I/usr/local/include $(OPENCVINC)
 CCLIBS = -L/usr/lib/x86_64-linux-gnu -L. -L/usr/local/lib $(OPENCVLNK)
-CCLINK = -ljpeg -lmpfit -lm 
+CCLINK = -ljpeg -lmpfit -lcfitsio -lm -lpthread
 
 GCC=gcc
 CC=g++
@@ -33,7 +33,7 @@ idscheck: idscheck.o
 
 	
 pushprocyon:
-	rsync -avuz /Users/chyan/Documents/workspace/IDSControl/* -e ssh chyan@procyon:/home/chyan/Development/idsexposure
+	rsync -avuz /Users/chyan/Documents/workspace/IDSControl/* -e ssh chyan@procyon:/home/chyan/IDSControl/
 	
 pushspica:
 	rsync -avuz ../IDSControl -e ssh chyan@spica:/home/chyan/

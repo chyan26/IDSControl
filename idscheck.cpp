@@ -8,7 +8,10 @@
 #include <wctype.h>
 #include <iostream>
 #include <string>
+#include <iterator>
+#include <algorithm>
 
+#include <fitsio.h>
 #include <mpfit.h>
 
 #include "opencv2/opencv.hpp"
@@ -26,6 +29,97 @@ struct vars_struct {
    double *flux;     //DATA
    double *ferr;     //ESTIMATE OF ERROR
 };
+
+int WriteFitsImage(char *filename, int height, int width, u_char * image_p)
+{
+    fitsfile *fptr;       /* pointer to the FITS file, defined in fitsio.h */
+    int status, ii;
+    long  fpixel, nelements, exposure;
+    unsigned short *array=NULL;
+
+    /* initialize FITS image parameters */
+    //char filename[] = "atestfil.fit";             /* name for new FITS file */
+    int bitpix   =  USHORT_IMG; /* 16-bit unsigned short pixel values       */
+    long naxis    =   2;  /* 2-dimensional image                            */
+    long naxes[2] = { width, height };   /* image is 640 pixels wide by 512 rows */
+
+    /* allocate memory for the whole image */
+    array = (unsigned short *)malloc( naxes[0] * naxes[1]
+                                        * sizeof( unsigned short ) );
+
+    /* initialize pointers to the start of each row of the image */
+    for( ii=1; ii<naxes[1]; ii++ )
+      array[ii] = array[ii-1] + naxes[0];
+
+    remove(filename);               /* Delete old file if it already exists */
+
+    status = 0;         /* initialize status before calling fitsio routines */
+
+    fits_create_file(&fptr, filename, &status); /* create new FITS file */
+    if (status != 0) {
+    	fprintf(stderr, "Error: (%s:%s:%d) can not get create image in disk "
+    			".\n", __FILE__, __func__, __LINE__);
+    	exit(1);
+    }
+
+    /* write the required keywords for the primary array image.     */
+    /* Since bitpix = USHORT_IMG, this will cause cfitsio to create */
+    /* a FITS image with BITPIX = 16 (signed short integers) with   */
+    /* BSCALE = 1.0 and BZERO = 32768.  This is the convention that */
+    /* FITS uses to store unsigned integers.  Note that the BSCALE  */
+    /* and BZERO keywords will be automatically written by cfitsio  */
+    /* in this case.                                                */
+
+    fits_create_img(fptr,  bitpix, naxis, naxes, &status);
+    if (status != 0) {
+    	fprintf(stderr, "Error: (%s:%s:%d) can not get create image in disk "
+    			".\n", __FILE__, __func__, __LINE__);
+        exit(1);
+    }
+    nelements = naxes[0] * naxes[1];          /* number of pixels to write */
+
+    //memcpy(array, image_p, nelements*sizeof(unsigned short));
+
+    for (ii=0;ii<nelements;ii++){
+          array[ii] = image_p[ii];
+          if (array[ii] > 65535) array[ii]=65535;
+    }
+
+
+    fpixel = 1;                               /* first pixel to write      */
+    /* write the array of unsigned integers to the FITS file */
+    fits_write_img(fptr, TUSHORT, fpixel, nelements, (unsigned short *)array, &status);
+    //fits_write_img(fptr, TUSHORT, fpixel, nelements, (unsigned short *)image_p, &status);
+    if (status != 0) {
+    	fprintf(stderr, "Error: (%s:%s:%d) can not get close image in disk "
+    			".\n", __FILE__, __func__, __LINE__);
+    	        exit(1);
+    }
+
+    free( array );  /* free previously allocated memory */
+
+    /* write another optional keyword to the header */
+    /* Note that the ADDRESS of the value is passed in the routine */
+    exposure = 1500.;
+    fits_update_key(fptr, TLONG, "EXPOSURE", &exposure,
+         "Total Exposure Time", &status);
+    if (status != 0) {
+		fprintf(stderr, "Error: (%s:%s:%d) can not get close image in disk "
+				".\n", __FILE__, __func__, __LINE__);
+		exit(1);
+    }
+
+    fits_close_file(fptr, &status);                /* close the file */
+    if (status != 0) {
+    		fprintf(stderr, "Error: (%s:%s:%d) can not get close image in disk "
+    			".\n", __FILE__, __func__, __LINE__);
+        	exit(1);
+     }
+
+    return(0);
+}
+
+
 
 static int
 gaussfunc2d(int m, int n, double *p, double *dy, double **dvec, void *vars)
@@ -129,28 +223,44 @@ double GetMedian(double arr[], int n){
 }
 #undef ELEM_SWAP
 
+// Function for calculating median 
+double findMedian(double a[], int n) 
+{ 
+    // First we sort the array 
+    sort(a, a+n); 
+  
+    // check for even case 
+    if (n % 2 != 0) 
+       return (double)a[n/2]; 
+      
+    return (double)(a[(n-1)/2] + a[n/2])/2.0; 
+}
 
 /*
  * Simple centroid calculation on the image
  */
 static int
-calculateCentroid(unsigned short *image, int columns, int rows,
+calculateCentroid(u_char *image, int columns, int rows,
       float *xc, float *yc) {
 
    int i;
    int j;
    int val;
-   float sum,median;
-   double arr[columns*rows];
+   double sum,median;
+   double *arr=NULL;
 
-   //arr=(double *)malloc(columns*rows*sizeof(double));
+   //std::copy(image, image+columns*rows, arr);
+   arr=(double *)malloc(columns*rows*sizeof(double));
 
+   //std::cout << image[0] <<' '<< arr[0] << std::endl;
    for (i=0;i<columns*rows;i++){
-      arr[i]=image[i];
+      arr[i]=(double)image[i];
+      //arr[i] = arr[i] - 10;
+      //if (arr[i] < 0) {arr[i] =  0;}
    }
-   median=GetMedian(arr,columns*rows);
+   median=findMedian(arr,columns*rows);
    //fprintf(stderr," median=%f ",median);
-
+   if (median <= 0){median = 20;}
    *xc = 0;
    *yc = 0;
    sum = 0;
@@ -173,7 +283,7 @@ calculateCentroid(unsigned short *image, int columns, int rows,
       *yc = rows / 2.0;
    }
 
-   //free(arr);
+   free(arr);
    return 0;
 }
 
@@ -181,7 +291,7 @@ calculateCentroid(unsigned short *image, int columns, int rows,
 /*
  * MPFIS method for centroid calculation on the image
  */
-int *calculateCentroidMPFIT(unsigned short *image, int columns, int rows,
+int *calculateCentroidMPFIT(u_char *image, int columns, int rows,
       float *xc, float *yc) {
 
    struct vars_struct v; //PRIVATE STRUCTURE WITH DATA/FUNCTION INFORMATION
@@ -193,7 +303,6 @@ int *calculateCentroidMPFIT(unsigned short *image, int columns, int rows,
    double *ferr=NULL;
 
    // Array for median calculation
-   double arr[columns*rows];
 
    double perror[6];	//ERRORS IN RETURNED PARAMETERS
 
@@ -208,59 +317,66 @@ int *calculateCentroidMPFIT(unsigned short *image, int columns, int rows,
    calculateCentroid(image, columns, rows,&xest, &yest);
    //fprintf(stderr,"x=%f y=%f ",xest,yest);
 
-   /*
-    *  Cut out the region near the point
-    */
+   // /*
+   //  *  Cut out the region near the point
+   //  */
    int fpix[2];                       //FIRST PIXELS OF SUBREGION [X,Y]
    int lpix[2];                       //LAST PIXELS OF SUBREGION [X,Y]
    int subx, suby,np;
    double *subimage;
-
+   //std::array<double,1280*1024> subimage = image
    fpix[0]=xest-CENTER_SIZE_X/4;
    fpix[1]=yest-CENTER_SIZE_Y/4;
    lpix[0]=xest+CENTER_SIZE_X/4-1;
    lpix[1]=yest+CENTER_SIZE_Y/4-1;
 
-   if (xest-CENTER_SIZE_X/4 < 0) fpix[0]=0;
-   if (yest-CENTER_SIZE_Y/4 < 0) fpix[1]=0;
-   if (xest-CENTER_SIZE_X/4 > 128) lpix[0]=128;
-   if (yest-CENTER_SIZE_Y/4 > 128) lpix[1]=128;
+   // if (xest-CENTER_SIZE_X/4 < 0) fpix[0]=0;
+   // if (yest-CENTER_SIZE_Y/4 < 0) fpix[1]=0;
+   // if (xest-CENTER_SIZE_X/4 > 128) lpix[0]=128;
+   // if (yest-CENTER_SIZE_Y/4 > 128) lpix[1]=128;
 
 
-   //GET THE DIMENSIONS OF THE SUBREGION
+   // //GET THE DIMENSIONS OF THE SUBREGION
    subx=lpix[0]-fpix[0]+1;
    suby=lpix[1]-fpix[1]+1;
 
-   // Copy the central region
+   // Copy the image region
    subimage = (double *)malloc(subx*suby*sizeof(double));
    ferr = (double *)malloc(subx*suby*sizeof(double));
-   //fprintf(stderr,"subx=%i %i \n",subx,suby);
+   // //fprintf(stderr,"subx=%i %i \n",subx,suby);
 
    for (i=fpix[0];i<fpix[0]+subx;i++){
       for (j=fpix[1];j<fpix[1]+suby;j++){
-	 subimage[k]=(double)image[j*columns+i];
-	 ferr[k]=1.0;
-	 k++;
+	      subimage[k]=(double)image[j*columns+i];
+         //if (subimage[k] < 150){subimage[k] = 0;}
+	      ferr[k]=1.0;
+	      k++;
       }
    }
+   //for (i=0;i<subx*suby;i++){
+   //   subimage[i]=(double)image[i];
+   //   ferr[i] = 1.0;
+      //if (arr[i] < 0) {arr[i] =  0;}
+   //}
+   
 
    npoints=columns*rows;
    np=subx*suby;
 
-   //ferr = malloc(npoints*sizeof(double));
-   //arr = malloc(npoints*sizeof(double));
-   for (i=0;i<npoints;i++){
-      //ferr[i]=1.0;
-      arr[i]=(double)image[i];
-   }
-   median=GetMedian(arr,columns*rows);
+   // //ferr = malloc(npoints*sizeof(double));
+   // //arr = malloc(npoints*sizeof(double));
+   // for (i=0;i<npoints;i++){
+   //    //ferr[i]=1.0;
+   //    arr[i]=(double)image[i];
+   // }
+   median=150;
 
    double p[] = {xest-fpix[0],yest-fpix[1],2.5,2.5,12800.0,median};
 
    memset(&result,0,sizeof(result));
    result.xerror = perror;
    memset(pars,0,sizeof(pars));
-   //fprintf(stderr,"init=%f %f\n",xest-fpix[0],yest-fpix[1]);
+   // //fprintf(stderr,"init=%f %f\n",xest,yest);
 
    v.ferr = ferr;
    v.flux = subimage;
@@ -274,13 +390,13 @@ int *calculateCentroidMPFIT(unsigned short *image, int columns, int rows,
 
 
 
-   // TODO: Error on the return value of this function need to be handled
+   // // TODO: Error on the return value of this function need to be handled
    mpfit(gaussfunc2d, np, 6, p, pars, 0, (void *) &v, &result);
 
 
-   //fprintf(stderr,"total time=%f \n",last_ts-current_ts);
+   // //fprintf(stderr,"total time=%f \n",last_ts-current_ts);
 
-   //printresult(p, &result);
+   // //printresult(p, &result);
 
    free(subimage);
    free(ferr);
@@ -300,46 +416,54 @@ int *calculateCentroidMPFIT(unsigned short *image, int columns, int rows,
 
 }
 
-
 Mat analysisCenter(Mat imageData, int threshold){
 	RNG rng(12345);
+   int i = 0, j = 0;
+   float xc, yc;
+   /* Convert to the grey scale image to color image for displaying */
+   cv::Mat img;
+   cv::cvtColor(imageData, img, COLOR_GRAY2BGR);
 
+   calculateCentroidMPFIT(imageData.data, img.cols, img.rows,&xc, &yc);
+   std::cout << xc << ' ' << yc << std::endl;
 
-    /* Convert to the grey scale image to color image for displaying */
-    cv::Mat img;
-    cv::cvtColor(imageData, img, COLOR_GRAY2BGR);
+   //WriteFitsImage("test.fits", imageData.rows, imageData.cols, imageData.data);
 
+   //std::cout << findMedian(image_ushort,imageData.total())<< std::endl;
+   
+   Mat canny_output;
+   vector<vector<Point> > contours;
+   vector<Vec4i> hierarchy;
 
-    Mat canny_output;
-    vector<vector<Point> > contours;
-    vector<Vec4i> hierarchy;
+   Canny( imageData, canny_output, threshold/2, threshold*2, 3 );
+   findContours( canny_output, contours, hierarchy, RETR_TREE, CHAIN_APPROX_SIMPLE, Point(0, 0) );
+   /// Get the moments
+   vector<Moments> mu(contours.size() );
+   for( int i = 0; i < contours.size(); i++ )
+      { mu[i] = moments( contours[i], false ); }
 
-    Canny( imageData, canny_output, threshold, threshold*1.5, 3 );
-    findContours( canny_output, contours, hierarchy, RETR_TREE, CHAIN_APPROX_SIMPLE, Point(0, 0) );
-    /// Get the moments
-     vector<Moments> mu(contours.size() );
-     for( int i = 0; i < contours.size(); i++ )
-        { mu[i] = moments( contours[i], false ); }
-
-     ///  Get the mass centers:
-     vector<Point2f> mc( contours.size() );
-     for( int i = 0; i < contours.size(); i++ )
-        { mc[i] = Point2f( mu[i].m10/mu[i].m00 , mu[i].m01/mu[i].m00 ); }
+   ///  Get the mass centers:
+   vector<Point2f> mc( contours.size() );
+   for( int i = 0; i < contours.size(); i++ )
+      { mc[i] = Point2f( mu[i].m10/mu[i].m00 , mu[i].m01/mu[i].m00 ); }
 
      /// Draw contours
-     Mat drawing = Mat::zeros( canny_output.size(), CV_8UC3 );
-     Scalar color = Scalar( rng.uniform(0, 255), rng.uniform(0,255), rng.uniform(0,255) );
-
-     if (contours.size() > 0){
-         drawContours( img, contours, 0, color, 2, 8, hierarchy, 0, Point() );
-         circle( img, mc[0], 4, color, -1, 8, 0 );
-         std::cout << mc[0].x <<' '<< mc[0].y << std::endl;
-     }
+   Mat drawing = Mat::zeros( canny_output.size(), CV_8UC3 );
+   Scalar color = Scalar( rng.uniform(0, 255), rng.uniform(0,255), rng.uniform(0,255) );
+   Point2f center = Point2f( xc , yc );
+   
+   if (contours.size() > 0){
+      drawContours( img, contours, 1, color, 2, 8, hierarchy, 0, Point() );
+      
+      //circle( img, mc[0], 4, color, -1, 8, 0 );
+   //       std::cout << mc[0].x <<' '<< mc[0].y << std::endl;
+   }
+   circle( img, center, 4, color, -1, 8, 0 );
 
 
     /// Show in a window
     //namedWindow( "Contours", CV_WINDOW_AUTOSIZE );
-	//imshow( "Contours", img );
+	//imshow( "Contours", canny_output );
     //cv::waitKey(0);
 
     //cv::imwrite(filename, img);
