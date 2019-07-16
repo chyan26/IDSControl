@@ -11,6 +11,7 @@
 #include <iterator>
 #include <algorithm>
 #include <winsock.h>
+#include <math.h>
 
 #include "mpfit.h"
 
@@ -247,27 +248,38 @@ Mat analysisCenter(Mat imageData, int threshold){
    Canny( imageData, canny_output, thresValint/2, thresValint*2, 3 );
    findContours( canny_output, contours, hierarchy, RETR_TREE, CHAIN_APPROX_SIMPLE, Point(0, 0) );
    /// Get the moments
-   vector<Moments> mu(contours.size() );
-   for( int i = 0; i < contours.size(); i++ )
-      { mu[i] = moments( contours[i], false ); }
 
-   ///  Get the mass centers:
-   vector<Point2f> mc( contours.size() );
-   for( int i = 0; i < contours.size(); i++ )
-      { mc[i] = Point2f( mu[i].m10/mu[i].m00 , mu[i].m01/mu[i].m00 ); }
-
-     /// Draw contours
-   Mat drawing = Mat::zeros( canny_output.size(), CV_8UC3 );
    Scalar color = Scalar( rng.uniform(0, 255), rng.uniform(0,255), rng.uniform(0,255) );
-
    if (contours.size() > 0){
-      drawContours( img, contours, 1, color, 2, 8, hierarchy, 0, Point() );
+       vector<Moments> mu(contours.size() );
+       for( int i = 0; i < contours.size(); i++ )
+          { mu[i] = moments( contours[i], false ); }
+
+       ///  Get the mass centers:
+       vector<Point2f> mc( contours.size() );
+       for( int i = 0; i < contours.size(); i++ )
+          { mc[i] = Point2f( mu[i].m10/mu[i].m00 , mu[i].m01/mu[i].m00 ); }
+
+       /// Draw contours
+       Mat drawing = Mat::zeros( canny_output.size(), CV_8UC3 );
+
+
+      if (contours.size() > 1){drawContours( img, contours, 1, color, 2, 8, hierarchy, 0, Point() );}
 
       circle( img, mc[0], 4, color, -1, 8, 0 );
-      //std::cout << mc[0].x <<' '<< mc[0].y << std::endl;
+      //std::cout << 'X=' << mc[0].x <<' '<< mc[0].y << std::endl;
+      if (isnan(mc[0].x)){mc[0].x = 640.0;}
+      if (isnan(mc[0].y)){mc[0].y = 480.0;}
+
+      calculateCentroidMPFIT(imageData.data, img.cols, img.rows,  mc[0].x, mc[0].y,&xc, &yc, thresValint);
+   } else {
+      vector<Point2f> mc(1);
+      mc[0] = Point2f(480.0, 640.0 );
+
+      calculateCentroidMPFIT(imageData.data, img.cols, img.rows, mc[0].x, mc[0].y,&xc, &yc, thresValint);
    }
 
-   calculateCentroidMPFIT(imageData.data, img.cols, img.rows,  mc[0].x, mc[0].y,&xc, &yc, thresValint);
+
    std::cout << xc << ' ' << yc << std::endl;
    Point2f center = Point2f( xc , yc );
    circle( img, center, 4, color, -1, 8, 0 );
