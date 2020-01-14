@@ -16,15 +16,15 @@
 #include "mpfit.h"
 
 #include "opencv2/opencv.hpp"
-#include "opencv2/highgui/highgui.hpp"
-#include "opencv2/imgproc/imgproc.hpp"
+#include "opencv2/highgui.hpp"
+#include "opencv2/imgproc.hpp"
 
 
 using namespace cv;
 using namespace std;
 
-#define CENTER_SIZE_X 128
-#define CENTER_SIZE_Y 128
+#define CENTER_SIZE_X 256
+#define CENTER_SIZE_Y 256
 
 struct vars_struct {
    double *flux;     //DATA
@@ -91,166 +91,224 @@ double findMedian(double a[], int n)
 /*
  * MPFIS method for centroid calculation on the image
  */
-int *calculateCentroidMPFIT(u_char *image, int columns, int rows, float xest, float yest,
+int calculateCentroidMPFIT(u_char *image, int columns, int rows, float xest, float yest,
       float *xc, float *yc, int threshold) {
 
-   struct vars_struct v; //PRIVATE STRUCTURE WITH DATA/FUNCTION INFORMATION
-   mp_result result;     //STRUCTURE WITH RESULTS
-   mp_par pars[6];	//VARIABLE THAT HOLDS INFORMATION ABOUT FIXING PARAMETERS - DATA TYPE IN MPFIT
+    struct vars_struct v; //PRIVATE STRUCTURE WITH DATA/FUNCTION INFORMATION
+    mp_result result;     //STRUCTURE WITH RESULTS
+    mp_par pars[6];	//VARIABLE THAT HOLDS INFORMATION ABOUT FIXING PARAMETERS - DATA TYPE IN MPFIT
 
-   double median;
+    double median;
 
-   double *ferr=NULL;
+    double *ferr=NULL;
 
-   // Array for median calculation
+    // Array for median calculation
 
-   double perror[6];	//ERRORS IN RETURNED PARAMETERS
+    double perror[6];	//ERRORS IN RETURNED PARAMETERS
 
-   int i,j,k=0;
-   //int npoints;
+    int i,j,k=0;
+    //int npoints;
 
-   /*
+    /*
     *   First step, estimate the center of the point using Center of Mass
     */
-   //float xest = 0;
-   //float yest = 0;
-   //calculateCentroid(image, columns, rows,&xest, &yest);
-   //fprintf(stderr,"x=%f y=%f ",xest,yest);
+    //float xest = 0;
+    //float yest = 0;
+    //calculateCentroid(image, columns, rows,&xest, &yest);
+    //fprintf(stderr,"x=%f y=%f ",xest,yest);
 
-   // /*
-   //  *  Cut out the region near the point
-   //  */
-   int fpix[2];                       //FIRST PIXELS OF SUBREGION [X,Y]
-   int lpix[2];                       //LAST PIXELS OF SUBREGION [X,Y]
-   int subx, suby,np;
-   double *subimage;
-   //std::array<double,1280*1024> subimage = image
-   fpix[0]=xest-CENTER_SIZE_X/4;
-   fpix[1]=yest-CENTER_SIZE_Y/4;
-   lpix[0]=xest+CENTER_SIZE_X/4-1;
-   lpix[1]=yest+CENTER_SIZE_Y/4-1;
+    // /*
+    //  *  Cut out the region near the point
+    //  */
+    int fpix[2];                       //FIRST PIXELS OF SUBREGION [X,Y]
+    int lpix[2];                       //LAST PIXELS OF SUBREGION [X,Y]
+    int subx, suby,np;
+    double *subimage;
+    //std::array<double,1280*1024> subimage = image
+    fpix[0]=xest-CENTER_SIZE_X/4;
+    fpix[1]=yest-CENTER_SIZE_Y/4;
+    lpix[0]=xest+CENTER_SIZE_X/4-1;
+    lpix[1]=yest+CENTER_SIZE_Y/4-1;
 
-   // if (xest-CENTER_SIZE_X/4 < 0) fpix[0]=0;
-   // if (yest-CENTER_SIZE_Y/4 < 0) fpix[1]=0;
-   // if (xest-CENTER_SIZE_X/4 > 128) lpix[0]=128;
-   // if (yest-CENTER_SIZE_Y/4 > 128) lpix[1]=128;
+    // if (xest-CENTER_SIZE_X/4 < 0) fpix[0]=0;
+    // if (yest-CENTER_SIZE_Y/4 < 0) fpix[1]=0;
+    // if (xest-CENTER_SIZE_X/4 > 128) lpix[0]=128;
+    // if (yest-CENTER_SIZE_Y/4 > 128) lpix[1]=128;
 
 
-   // //GET THE DIMENSIONS OF THE SUBREGION
-   subx=lpix[0]-fpix[0]+1;
-   suby=lpix[1]-fpix[1]+1;
+    // //GET THE DIMENSIONS OF THE SUBREGION
+    subx=lpix[0]-fpix[0]+1;
+    suby=lpix[1]-fpix[1]+1;
 
-   // Copy the image region
-   subimage = (double *)malloc(subx*suby*sizeof(double));
-   ferr = (double *)malloc(subx*suby*sizeof(double));
-   // //fprintf(stderr,"subx=%i %i \n",subx,suby);
+    // Copy the image region
+    subimage = (double *)malloc(subx*suby*sizeof(double));
+    ferr = (double *)malloc(subx*suby*sizeof(double));
+    // //fprintf(stderr,"subx=%i %i \n",subx,suby);
 
-   for (i=fpix[0];i<fpix[0]+subx;i++){
+    for (i=fpix[0];i<fpix[0]+subx;i++){
       for (j=fpix[1];j<fpix[1]+suby;j++){
-	      subimage[k]=(double)image[j*columns+i];
+          subimage[k]=(double)image[j*columns+i];
           if (subimage[k] < (double)threshold){subimage[k] = 0;}
-	      ferr[k]=1.0;
-	      k++;
+          ferr[k]=1.0;
+          k++;
       }
-   }
-   //for (i=0;i<subx*suby;i++){
-   //   subimage[i]=(double)image[i];
-   //   ferr[i] = 1.0;
+    }
+    //for (i=0;i<subx*suby;i++){
+    //   subimage[i]=(double)image[i];
+    //   ferr[i] = 1.0;
       //if (arr[i] < 0) {arr[i] =  0;}
-   //}
+    //}
 
 
-   //npoints=columns*rows;
-   np=subx*suby;
-   median=findMedian(subimage,np);
-   //fprintf(stderr," median=%f ",median);
-   //if (median <= 0){median = 150;}
-   // //ferr = malloc(npoints*sizeof(double));
-   // //arr = malloc(npoints*sizeof(double));
-   // for (i=0;i<npoints;i++){
-   //    //ferr[i]=1.0;
-   //    arr[i]=(double)image[i];
-   // }
-   //median=150;
+    //npoints=columns*rows;
+    np=subx*suby;
+    //median=findMedian(subimage,np);
+    //fprintf(stderr," median=%f ",median);
+    //if (median <= 0){median = 150;}
+    // //ferr = malloc(npoints*sizeof(double));
+    // //arr = malloc(npoints*sizeof(double));
+    // for (i=0;i<npoints;i++){
+    //    //ferr[i]=1.0;
+    //    arr[i]=(double)image[i];
+    // }
+    median=20;
 
-   double p[] = {xest-fpix[0],yest-fpix[1],2.5,2.5, 200.0,median};
+    double p[] = {xest-fpix[0],yest-fpix[1],2.5,2.5, 200.0,median};
 
-   memset(&result,0,sizeof(result));
-   result.xerror = perror;
-   memset(pars,0,sizeof(pars));
-   // //fprintf(stderr,"init=%f %f\n",xest,yest);
+    memset(&result,0,sizeof(result));
+    result.xerror = perror;
+    memset(pars,0,sizeof(pars));
+    // //fprintf(stderr,"init=%f %f\n",xest,yest);
 
-   v.ferr = ferr;
-   v.flux = subimage;
+    v.ferr = ferr;
+    v.flux = subimage;
 
-   //pars[1].fixed = 0;
-   pars[2].fixed = 1;
-   pars[3].fixed = 1;
-   //pars[4].fixed = 1;
-   //pars[5].fixed = 1;
-   pars[5].fixed = 1;
-
-
-
-   // // TODO: Error on the return value of this function need to be handled
-   mpfit(gaussfunc2d, np, 6, p, pars, 0, (void *) &v, &result);
+    //pars[1].fixed = 0;
+    //pars[2].fixed = 1;
+    //pars[3].fixed = 1;
+    //pars[4].fixed = 1;
+    //pars[5].fixed = 1;
+    //pars[5].fixed = 1;
 
 
-   free(subimage);
-   free(ferr);
 
-   if (fpix[1]+p[1] < 0){
+    // // TODO: Error on the return value of this function need to be handled
+    mpfit(gaussfunc2d, np, 6, p, pars, 0, (void *) &v, &result);
+
+
+    free(subimage);
+    free(ferr);
+    //printf("%6.2f  %6.2f\n",p[0],p[1]);
+    if (fpix[1]+p[1] < 0){
       *yc=yest;
-   } else {
+    } else {
       *yc=fpix[1]+p[1];
-   }
+    }
 
-   if (fpix[0]+p[0] < 0){
+    if (fpix[0]+p[0] < 0){
       *xc=xest;
-   } else {
+    } else {
       *xc=fpix[0]+p[0];
-   }
-   return 0;
+    }
+    return 0;
 
 }
+Mat getCenter(Mat imageData, int threshold){
+    Mat gray, img;
+    float xc, yc;
+    int res;
+
+    double maxVal, minVal;
+    Point minLoc, maxLoc;
+    float  thresVal;
+    int    thresValint;
+
+    if (threshold > 100) {
+        fprintf(stderr, "Warning: (%s:%s:%d) threshold should be 0 to 100."
+            "\n", __FILE__, __func__, __LINE__);
+        exit(EXIT_FAILURE);
+    }
+    /* Calculate the maximum of the image */
+    cv::minMaxLoc(imageData, &minVal, &maxVal, &minLoc, &maxLoc);
+    //std::cout <<maxLoc.x<<' '<<maxLoc.y << std::endl;
+    thresVal = maxVal*threshold/100.0;
+    thresValint = (int) thresVal;
+
+    /* Convert to binary */
+    cv::Mat thres;
+    cv::threshold(imageData, thres, thresValint, 255, cv::THRESH_BINARY);
+
+    cv::cvtColor(thres, img, COLOR_GRAY2BGR);
+
+
+    //cv::threshold(imageData, thres, thresValint, 255, cv::THRESH_BINARY);
+
+    //medianBlur(imageData, gray, 2);
+    vector<Vec3f> circles;
+    HoughCircles(thres, circles, HOUGH_GRADIENT, 1,
+                 imageData.rows,  // change this value to detect circles with different distances to each other
+                 100, 10, 0, 0 // change the last two parameters
+            // (min_radius & max_radius) to detect larger circles
+    );
+    for( size_t i = 0; i < circles.size(); i++ )
+    {
+        Vec3i c = circles[i];
+        Point center = Point(c[0], c[1]);
+        // circle center
+        circle( img, center, 1, Scalar(0,100,100), 3, LINE_AA);
+        // circle outline
+        int radius = c[2];
+        circle( img, center, radius, Scalar(255,0,255), 2, LINE_AA);
+
+        //std::cout <<center.x<<' '<<center.y << std::endl;
+        res=calculateCentroidMPFIT(thres.data, img.cols, img.rows,center.x, center.y,&xc, &yc, 50);
+        //std::cout << std::setprecision(5)<<xc<<' '<<std::setprecision(5)<<yc << std::endl;
+        printf("%6.2f %6.2f\n",xc,yc);
+    }
+        //std::cout <<xc<<' '<<yc << std::endl;
+
+    return img;
+}
+
+
 
 Mat analysisCenter(Mat imageData, int threshold){
-	RNG rng(12345);
-   int i = 0;
-   float xc, yc;
-   /* Convert to the grey scale image to color image for displaying */
-   cv::Mat img;
-   cv::cvtColor(imageData, img, COLOR_GRAY2BGR);
+    RNG rng(12345);
+    int i = 0, res;
+    float xc, yc;
+    /* Convert to the grey scale image to color image for displaying */
+    cv::Mat img;
+    cv::cvtColor(imageData, img, COLOR_GRAY2BGR);
 
-   double maxVal, minVal;
-   float  thresVal;
-   int    thresValint;
+    double maxVal, minVal;
+    float  thresVal;
+    int    thresValint;
 
-   if (threshold > 100) {
-    	fprintf(stderr, "Warning: (%s:%s:%d) threshold should be 0 to 100."
-        	"\n", __FILE__, __func__, __LINE__);
+    if (threshold > 100) {
+        fprintf(stderr, "Warning: (%s:%s:%d) threshold should be 0 to 100."
+            "\n", __FILE__, __func__, __LINE__);
         exit(EXIT_FAILURE);
-   }
+    }
 
-   /* Calculate the maximum of the image */
-   cv::minMaxLoc(imageData, &minVal, &maxVal, 0, 0);
+    /* Calculate the maximum of the image */
+    cv::minMaxLoc(imageData, &minVal, &maxVal, 0, 0);
 
-   thresVal = maxVal*threshold/100.0;
-   thresValint = (int) thresVal;
-   //WriteFitsImage("test.fits", imageData.rows, imageData.cols, imageData.data);
+    thresVal = maxVal*threshold/100.0;
+    thresValint = (int) thresVal;
+    //WriteFitsImage("test.fits", imageData.rows, imageData.cols, imageData.data);
 
-   //std::cout << findMedian(image_ushort,imageData.total())<< std::endl;
-   //std::cout << thresVal <<' '<< maxVal << std::endl;
-   Mat canny_output;
-   vector<vector<Point> > contours;
-   vector<Vec4i> hierarchy;
+    //std::cout << findMedian(image_ushort,imageData.total())<< std::endl;
+    //std::cout << thresVal <<' '<< maxVal << std::endl;
+    Mat canny_output;
+    vector<vector<Point> > contours;
+    vector<Vec4i> hierarchy;
 
-   Canny( imageData, canny_output, thresValint/2, thresValint*2, 3 );
-   findContours( canny_output, contours, hierarchy, RETR_TREE, CHAIN_APPROX_SIMPLE, Point(0, 0) );
-   /// Get the moments
+    Canny( imageData, canny_output, thresValint/10, thresValint*4, 3 );
+    findContours( canny_output, contours, hierarchy, RETR_TREE, CHAIN_APPROX_SIMPLE, Point(0, 0) );
+    /// Get the moments
 
-   Scalar color = Scalar( rng.uniform(0, 255), rng.uniform(0,255), rng.uniform(0,255) );
-   if (contours.size() > 0){
+    Scalar color = Scalar( rng.uniform(0, 255), rng.uniform(0,255), rng.uniform(0,255) );
+    if (contours.size() > 0){
        vector<Moments> mu(contours.size() );
        for( int i = 0; i < contours.size(); i++ )
           { mu[i] = moments( contours[i], false ); }
@@ -271,18 +329,34 @@ Mat analysisCenter(Mat imageData, int threshold){
       if (isnan(mc[0].x)){mc[0].x = 640.0;}
       if (isnan(mc[0].y)){mc[0].y = 480.0;}
 
-      calculateCentroidMPFIT(imageData.data, img.cols, img.rows,  mc[0].x, mc[0].y,&xc, &yc, thresValint);
+      res=calculateCentroidMPFIT(imageData.data, img.cols, img.rows,  mc[0].x, mc[0].y,&xc, &yc, thresValint);
+        //std::cout <<res << std::endl;
+
    } else {
-      vector<Point2f> mc(1);
-      mc[0] = Point2f(480.0, 640.0 );
-
-      calculateCentroidMPFIT(imageData.data, img.cols, img.rows, mc[0].x, mc[0].y,&xc, &yc, thresValint);
+        //medianBlur(imageData, gray, 2);
+        vector<Vec3f> circles;
+        HoughCircles(imageData, circles, HOUGH_GRADIENT, 1,
+                     imageData.rows,  // change this value to detect circles with different distances to each other
+                     100, 10, 0, 0 // change the last two parameters
+                // (min_radius & max_radius) to detect larger circles
+        );
+        for( size_t i = 0; i < circles.size(); i++ )
+        {
+            Vec3i c = circles[i];
+            Point center = Point(c[0], c[1]);
+            // circle center
+            circle( img, center, 1, Scalar(0,100,100), 3, LINE_AA);
+            // circle outline
+            int radius = c[2];
+            circle( img, center, radius, Scalar(255,0,255), 2, LINE_AA);
+            //std::cout <<center.x<<' '<<center.y << std::endl;
+            xc = center.x;
+            yc = center.y;
+        }
    }
-
-
-   std::cout << xc << ' ' << yc << std::endl;
-   Point2f center = Point2f( xc , yc );
-   circle( img, center, 4, color, -1, 8, 0 );
+    std::cout << xc << ' ' << yc << std::endl;
+    Point2f center = Point2f( xc , yc );
+    circle( img, center, 4, color, -1, 8, 0 );
 
 
     /// Show in a window
@@ -558,7 +632,7 @@ int main(int argc, char *argv[]) {
         if (thres == 0 ) thres = 70;
 	if (focus==1) resImg=analysisFocus(image,thres);
 	if (angle==1) resImg=analysisAngle(image,thres);
-	if (center==1) resImg=analysisCenter(image,thres);
+	if (center==1) resImg=getCenter(image,thres);
 
         //if (output == NULL){
             string="output-";
