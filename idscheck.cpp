@@ -123,7 +123,7 @@ int calculateCentroidMPFIT(u_char *image, int columns, int rows, float xest, flo
     int fpix[2];                       //FIRST PIXELS OF SUBREGION [X,Y]
     int lpix[2];                       //LAST PIXELS OF SUBREGION [X,Y]
     int subx, suby,np;
-    double *subimage;
+    double *subimage, *medianImage;
     //std::array<double,1280*1024> subimage = image
     fpix[0]=xest-CENTER_SIZE_X/4;
     fpix[1]=yest-CENTER_SIZE_Y/4;
@@ -142,13 +142,16 @@ int calculateCentroidMPFIT(u_char *image, int columns, int rows, float xest, flo
 
     // Copy the image region
     subimage = (double *)malloc(subx*suby*sizeof(double));
+    medianImage = (double *)malloc(subx*suby*sizeof(double));
     ferr = (double *)malloc(subx*suby*sizeof(double));
     // //fprintf(stderr,"subx=%i %i \n",subx,suby);
 
     for (i=fpix[0];i<fpix[0]+subx;i++){
       for (j=fpix[1];j<fpix[1]+suby;j++){
           subimage[k]=(double)image[j*columns+i];
+          medianImage[k]=(double)image[j*columns+i];
           if (subimage[k] < (double)threshold){subimage[k] = 0;}
+          if (medianImage[k] < (double)threshold){medianImage[k] = 0;}
           ferr[k]=1.0;
           k++;
       }
@@ -162,7 +165,7 @@ int calculateCentroidMPFIT(u_char *image, int columns, int rows, float xest, flo
 
     //npoints=columns*rows;
     np=subx*suby;
-    //median=findMedian(subimage,np);
+    median=findMedian(medianImage,np);
     //fprintf(stderr," median=%f ",median);
     //if (median <= 0){median = 150;}
     // //ferr = malloc(npoints*sizeof(double));
@@ -171,7 +174,7 @@ int calculateCentroidMPFIT(u_char *image, int columns, int rows, float xest, flo
     //    //ferr[i]=1.0;
     //    arr[i]=(double)image[i];
     // }
-    median=20;
+    //median=20;
 
     double p[] = {xest-fpix[0],yest-fpix[1],2.5,2.5, 200.0,median};
 
